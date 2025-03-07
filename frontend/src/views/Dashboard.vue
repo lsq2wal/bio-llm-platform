@@ -1,231 +1,237 @@
 <template>
-  <div class="dashboard">
-    <el-row :gutter="20">
-      <!-- 数据统计卡片 -->
-      <el-col :span="6">
-        <el-card class="stat-card" shadow="hover">
-          <div class="stat-content">
-            <div class="stat-icon">
-              <i class="el-icon-document"></i>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ stats.dataCount }}</div>
-              <div class="stat-label">数据集</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      
-      <el-col :span="6">
-        <el-card class="stat-card" shadow="hover">
-          <div class="stat-content">
-            <div class="stat-icon">
-              <i class="el-icon-s-operation"></i>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ stats.analysisCount }}</div>
-              <div class="stat-label">分析任务</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      
-      <el-col :span="6">
-        <el-card class="stat-card" shadow="hover">
-          <div class="stat-content">
-            <div class="stat-icon">
-              <i class="el-icon-cpu"></i>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ stats.gpuUsage }}%</div>
-              <div class="stat-label">GPU利用率</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-      
-      <el-col :span="6">
-        <el-card class="stat-card" shadow="hover">
-          <div class="stat-content">
-            <div class="stat-icon">
-              <i class="el-icon-data-line"></i>
-            </div>
-            <div class="stat-info">
-              <div class="stat-value">{{ formatDiskUsage(stats.storageUsage) }}</div>
-              <div class="stat-label">存储使用</div>
-            </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-    
-    <!-- 最近任务和快速启动 -->
-    <el-row :gutter="20" class="dashboard-row">
-      <el-col :span="16">
-        <el-card class="recent-tasks">
-          <div slot="header">
-            <span>最近分析任务</span>
-            <el-button style="float: right; padding: 3px 0" type="text" @click="viewAllTasks">
-              查看全部
-            </el-button>
-          </div>
-          
-          <el-table :data="recentTasks" stripe style="width: 100%">
-            <el-table-column prop="taskName" label="任务名称" width="240">
-              <template slot-scope="scope">
-                <el-link type="primary" @click="viewTaskDetail(scope.row)">
-                  {{ scope.row.taskName }}
-                </el-link>
-              </template>
-            </el-table-column>
-            <el-table-column prop="taskType" label="类型" width="120">
-              <template slot-scope="scope">
-                <el-tag :type="getTaskTypeTag(scope.row.taskType)">
-                  {{ formatTaskType(scope.row.taskType) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="submitTime" label="提交时间" width="180"></el-table-column>
-            <el-table-column prop="status" label="状态" width="100">
-              <template slot-scope="scope">
-                <el-tag :type="getStatusTag(scope.row.status)">
-                  {{ formatStatus(scope.row.status) }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column prop="progress" label="进度" width="180">
-              <template slot-scope="scope">
-                <el-progress 
-                  :percentage="Math.round(scope.row.progress * 100)" 
-                  :status="getProgressStatus(scope.row.status)"
-                ></el-progress>
-              </template>
-            </el-table-column>
-          </el-table>
-        </el-card>
-      </el-col>
-      
-      <el-col :span="8">
-        <el-card class="quick-start">
-          <div slot="header">
-            <span>快速操作</span>
-          </div>
-          
-          <el-button type="primary" icon="el-icon-upload" @click="goToUploadData" class="quick-button">
-            上传数据
-          </el-button>
-          
-          <el-button type="success" icon="el-icon-s-promotion" @click="goToNewAnalysis" class="quick-button">
-            新建分析
-          </el-button>
-          
-          <div class="quick-ask">
-            <h4>生物学问答</h4>
-            <el-input
-              type="textarea"
-              v-model="quickQuestion"
-              placeholder="输入生物学问题，如'T细胞亚群的主要marker基因有哪些？'"
-              :rows="3"
-            ></el-input>
-            <div class="ask-actions">
-              <el-button type="primary" size="small" @click="askBioQuestion" :loading="loading">提问</el-button>
-            </div>
-            
-            <div v-if="quickAnswer" class="answer-box">
-              <h4>回答:</h4>
-              <div class="answer-content">{{ quickAnswer }}</div>
-              <div class="answer-sources" v-if="quickSources && quickSources.length">
-                <h5>参考来源:</h5>
-                <ul>
-                  <li v-for="(source, index) in quickSources" :key="index">
-                    {{ source }}
-                  </li>
-                </ul>
+  <Layout>
+    <div class="dashboard">
+      <el-row :gutter="20">
+        <!-- 数据统计卡片 -->
+        <el-col :span="6">
+          <el-card class="stat-card" shadow="hover">
+            <div class="stat-content">
+              <div class="stat-icon">
+                <i class="el-icon-document"></i>
+              </div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.dataCount }}</div>
+                <div class="stat-label">数据集</div>
               </div>
             </div>
-          </div>
-        </el-card>
-      </el-col>
-    </el-row>
-    
-    <!-- 系统状态 -->
-    <el-row :gutter="20" class="dashboard-row">
-      <el-col :span="24">
-        <el-card class="system-status">
-          <div slot="header">
-            <span>系统状态</span>
-            <el-tag :type="getSystemStatusType(systemStatus.status)" class="status-tag">
-              {{ formatSystemStatus(systemStatus.status) }}
-            </el-tag>
-          </div>
-          
-          <el-row :gutter="20" class="status-row">
-            <el-col :span="8">
-              <el-card shadow="never" class="status-item">
-                <div slot="header">计算资源</div>
-                <div class="resource-meters">
-                  <div class="meter">
-                    <span>CPU使用率:</span>
-                    <el-progress :percentage="systemStatus.cpuUsage" :color="getResourceColor(systemStatus.cpuUsage)"></el-progress>
-                  </div>
-                  <div class="meter">
-                    <span>内存使用率:</span>
-                    <el-progress :percentage="systemStatus.memoryUsage" :color="getResourceColor(systemStatus.memoryUsage)"></el-progress>
-                  </div>
-                  <div class="meter">
-                    <span>GPU使用率:</span>
-                    <el-progress :percentage="systemStatus.gpuUsage" :color="getResourceColor(systemStatus.gpuUsage)"></el-progress>
-                  </div>
-                </div>
-              </el-card>
-            </el-col>
+          </el-card>
+        </el-col>
+        
+        <el-col :span="6">
+          <el-card class="stat-card" shadow="hover">
+            <div class="stat-content">
+              <div class="stat-icon">
+                <i class="el-icon-s-operation"></i>
+              </div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.analysisCount }}</div>
+                <div class="stat-label">分析任务</div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+        
+        <el-col :span="6">
+          <el-card class="stat-card" shadow="hover">
+            <div class="stat-content">
+              <div class="stat-icon">
+                <i class="el-icon-cpu"></i>
+              </div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.gpuUsage }}%</div>
+                <div class="stat-label">GPU利用率</div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+        
+        <el-col :span="6">
+          <el-card class="stat-card" shadow="hover">
+            <div class="stat-content">
+              <div class="stat-icon">
+                <i class="el-icon-data-line"></i>
+              </div>
+              <div class="stat-info">
+                <div class="stat-value">{{ formatDiskUsage(stats.storageUsage) }}</div>
+                <div class="stat-label">存储使用</div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+      
+      <!-- 最近任务和快速启动 -->
+      <el-row :gutter="20" class="dashboard-row">
+        <el-col :span="16">
+          <el-card class="recent-tasks">
+            <div slot="header">
+              <span>最近分析任务</span>
+              <el-button style="float: right; padding: 3px 0" type="text" @click="viewAllTasks">
+                查看全部
+              </el-button>
+            </div>
             
-            <el-col :span="8">
-              <el-card shadow="never" class="status-item">
-                <div slot="header">队列状态</div>
-                <div class="queue-status">
-                  <div class="queue-item">
-                    <span>排队作业数:</span>
-                    <span class="queue-value">{{ systemStatus.queuedJobs }}</span>
-                  </div>
-                  <div class="queue-item">
-                    <span>运行作业数:</span>
-                    <span class="queue-value">{{ systemStatus.runningJobs }}</span>
-                  </div>
-                  <div class="queue-item">
-                    <span>平均等待时间:</span>
-                    <span class="queue-value">{{ systemStatus.avgWaitTime }}</span>
-                  </div>
-                </div>
-              </el-card>
-            </el-col>
+            <el-table :data="recentTasks" stripe style="width: 100%">
+              <el-table-column prop="taskName" label="任务名称" width="240">
+                <template slot-scope="scope">
+                  <el-link type="primary" @click="viewTaskDetail(scope.row)">
+                    {{ scope.row.taskName }}
+                  </el-link>
+                </template>
+              </el-table-column>
+              <el-table-column prop="taskType" label="类型" width="120">
+                <template slot-scope="scope">
+                  <el-tag :type="getTaskTypeTag(scope.row.taskType)">
+                    {{ formatTaskType(scope.row.taskType) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="submitTime" label="提交时间" width="180"></el-table-column>
+              <el-table-column prop="status" label="状态" width="100">
+                <template slot-scope="scope">
+                  <el-tag :type="getStatusTag(scope.row.status)">
+                    {{ formatStatus(scope.row.status) }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="progress" label="进度" width="180">
+                <template slot-scope="scope">
+                  <el-progress 
+                    :percentage="Math.round(scope.row.progress * 100)" 
+                    :status="getProgressStatus(scope.row.status)"
+                  ></el-progress>
+                </template>
+              </el-table-column>
+            </el-table>
+          </el-card>
+        </el-col>
+        
+        <el-col :span="8">
+          <el-card class="quick-start">
+            <div slot="header">
+              <span>快速操作</span>
+            </div>
             
-            <el-col :span="8">
-              <el-card shadow="never" class="status-item">
-                <div slot="header">服务状态</div>
-                <div class="services-status">
-                  <div v-for="(service, index) in systemStatus.services" :key="index" class="service-item">
-                    <span>{{ service.name }}:</span>
-                    <el-tag :type="getServiceStatusType(service.status)" size="small">
-                      {{ formatServiceStatus(service.status) }}
-                    </el-tag>
-                  </div>
+            <el-button type="primary" icon="el-icon-upload" @click="goToUploadData" class="quick-button">
+              上传数据
+            </el-button>
+            
+            <el-button type="success" icon="el-icon-s-promotion" @click="goToNewAnalysis" class="quick-button">
+              新建分析
+            </el-button>
+            
+            <div class="quick-ask">
+              <h4>生物学问答</h4>
+              <el-input
+                type="textarea"
+                v-model="quickQuestion"
+                placeholder="输入生物学问题，如'T细胞亚群的主要marker基因有哪些？'"
+                :rows="3"
+              ></el-input>
+              <div class="ask-actions">
+                <el-button type="primary" size="small" @click="askBioQuestion" :loading="loading">提问</el-button>
+              </div>
+              
+              <div v-if="quickAnswer" class="answer-box">
+                <h4>回答:</h4>
+                <div class="answer-content">{{ quickAnswer }}</div>
+                <div class="answer-sources" v-if="quickSources && quickSources.length">
+                  <h5>参考来源:</h5>
+                  <ul>
+                    <li v-for="(source, index) in quickSources" :key="index">
+                      {{ source }}
+                    </li>
+                  </ul>
                 </div>
-              </el-card>
-            </el-col>
-          </el-row>
-        </el-card>
-      </el-col>
-    </el-row>
-  </div>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
+      
+      <!-- 系统状态 -->
+      <el-row :gutter="20" class="dashboard-row">
+        <el-col :span="24">
+          <el-card class="system-status">
+            <div slot="header">
+              <span>系统状态</span>
+              <el-tag :type="getSystemStatusType(systemStatus.status)" class="status-tag">
+                {{ formatSystemStatus(systemStatus.status) }}
+              </el-tag>
+            </div>
+            
+            <el-row :gutter="20" class="status-row">
+              <el-col :span="8">
+                <el-card shadow="never" class="status-item">
+                  <div slot="header">计算资源</div>
+                  <div class="resource-meters">
+                    <div class="meter">
+                      <span>CPU使用率:</span>
+                      <el-progress :percentage="systemStatus.cpuUsage" :color="getResourceColor(systemStatus.cpuUsage)"></el-progress>
+                    </div>
+                    <div class="meter">
+                      <span>内存使用率:</span>
+                      <el-progress :percentage="systemStatus.memoryUsage" :color="getResourceColor(systemStatus.memoryUsage)"></el-progress>
+                    </div>
+                    <div class="meter">
+                      <span>GPU使用率:</span>
+                      <el-progress :percentage="systemStatus.gpuUsage" :color="getResourceColor(systemStatus.gpuUsage)"></el-progress>
+                    </div>
+                  </div>
+                </el-card>
+              </el-col>
+              
+              <el-col :span="8">
+                <el-card shadow="never" class="status-item">
+                  <div slot="header">队列状态</div>
+                  <div class="queue-status">
+                    <div class="queue-item">
+                      <span>排队作业数:</span>
+                      <span class="queue-value">{{ systemStatus.queuedJobs }}</span>
+                    </div>
+                    <div class="queue-item">
+                      <span>运行作业数:</span>
+                      <span class="queue-value">{{ systemStatus.runningJobs }}</span>
+                    </div>
+                    <div class="queue-item">
+                      <span>平均等待时间:</span>
+                      <span class="queue-value">{{ systemStatus.avgWaitTime }}</span>
+                    </div>
+                  </div>
+                </el-card>
+              </el-col>
+              
+              <el-col :span="8">
+                <el-card shadow="never" class="status-item">
+                  <div slot="header">服务状态</div>
+                  <div class="services-status">
+                    <div v-for="(service, index) in systemStatus.services" :key="index" class="service-item">
+                      <span>{{ service.name }}:</span>
+                      <el-tag :type="getServiceStatusType(service.status)" size="small">
+                        {{ formatServiceStatus(service.status) }}
+                      </el-tag>
+                    </div>
+                  </div>
+                </el-card>
+              </el-col>
+            </el-row>
+          </el-card>
+        </el-col>
+      </el-row>
+    </div>
+  </Layout>
 </template>
 
 <script>
 import axios from 'axios';
 import { getAuthHeader } from '@/utils/auth';
+import Layout from '@/components/Layout.vue'
 
 export default {
   name: 'Dashboard',
+  components: {
+    Layout
+  },
   data() {
     return {
       loading: false,

@@ -1,0 +1,41 @@
+# 忽略 node_modules 目录
+node_modules/
+
+# 忽略所有 .log 文件
+*.log
+
+# 忽略编译文件
+*.o
+*.out
+*.class
+*.exe
+
+# 忽略临时文件
+*.tmp
+*.swp
+*.swo
+
+# 忽略环境配置文件
+.env
+config.json
+
+# 忽略 Python 虚拟环境
+venv/
+__pycache__/
+
+# 忽略 macOS 系统文件
+.DS_Store
+
+# 忽略 VSCode 相关文件
+.vscode/
+
+# 忽略所有 .idea（JetBrains IDE 配置）
+.idea/
+
+# 忽略某个具体文件
+secret_key.txt
+package-lock.json
+package.json
+
+# 保留某个特定文件，即使它匹配上面的规则
+!important.log

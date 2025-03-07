@@ -38,6 +38,10 @@ class Settings(BaseSettings):
     # 日志设置
     LOKI_URL: str = os.getenv("LOKI_URL", "http://localhost:3100")
     
+    # 添加共享存储路径配置
+    DATA_STORAGE_PATH: str = os.getenv("DATA_STORAGE_PATH", "/shared/data")
+    RESULT_STORAGE_PATH: str = os.getenv("RESULT_STORAGE_PATH", "/shared/results")
+    
     class Config:
         case_sensitive = True
         env_file = ".env"

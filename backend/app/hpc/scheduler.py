@@ -45,77 +45,57 @@ class HPCScheduler:
                 raise e
     
     async def submit_job(self, user: str, task_id: str, analysis_plan: Dict[str, Any], data_id: str) -> str:
-        """
-        向HPC提交分析作业
-        
-        Args:
-            user: 用户名
-            task_id: 任务ID
-            analysis_plan: 分析计划
-            data_id: 数据ID
-            
-        Returns:
-            HPC作业ID
-        """
+        """向HPC提交分析作业"""
         try:
-            token = await self._get_auth_token()
-            headers = {"Authorization": f"Bearer {token}"}
-            
-            # 根据分析计划生成作业脚本
+            # 生成作业脚本
             job_script = self._generate_job_script(user, task_id, analysis_plan, data_id)
             
-            # 向多瑙调度器提交作业
-            async with aiohttp.ClientSession(headers=headers) as session:
-                submit_url = f"{self.base_url}/api/jobs"
-                payload = {
-                    "name": f"bio_analysis_{task_id}",
-                    "script": job_script,
-                    "queue": "gpu",  # 使用GPU队列
-                    "resource_request": {
-                        "nodes": 1,
-                        "gpus_per_node": 1,  # 请求1个GPU
-                        "memory": "64GB"
-                    }
-                }
-                
-                async with session.post(submit_url, json=payload) as response:
-                    if response.status != 200:
-                        self.logger.error(f"提交HPC作业失败: {await response.text()}")
-                        raise Exception("提交HPC作业失败")
-                    
-                    data = await response.json()
-                    hpc_job_id = data["job_id"]
-                    
-                    # 保存任务映射关系到本地(实际应该保存到数据库)
-                    self._save_task_mapping(task_id, hpc_job_id)
-                    
-                    return hpc_job_id
-                    
+            # 保存脚本到文件
+            script_path = f"/tmp/job_{task_id}.sh"
+            with open(script_path, 'w') as f:
+                f.write(job_script)
+            
+            # 使用sbatch提交作业
+            import subprocess
+            result = subprocess.run(
+                ["sbatch", script_path], 
+                capture_output=True, 
+                text=True, 
+                check=True
+            )
+            
+            # 从输出中提取作业ID
+            # 典型输出: "Submitted batch job 12345"
+            hpc_job_id = result.stdout.strip().split()[-1]
+            
+            # 保存任务映射
+            self._save_task_mapping(task_id, hpc_job_id)
+            
+            return hpc_job_id
         except Exception as e:
             self.logger.error(f"提交作业失败: {str(e)}")
             raise e
     
     def _generate_job_script(self, user: str, task_id: str, analysis_plan: Dict[str, Any], data_id: str) -> str:
         """生成HPC作业脚本"""
-        # 这里根据分析计划生成实际的执行脚本
-        # 简化版本，实际应根据分析类型生成不同的脚本
         
         script = f"""#!/bin/bash
 #SBATCH --job-name=bio_{task_id}
 #SBATCH --output=logs/bio_{task_id}.out
 #SBATCH --error=logs/bio_{task_id}.err
 #SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=24
 #SBATCH --gres=gpu:1
 #SBATCH --time=12:00:00
-#SBATCH --mem=64G
+#SBATCH --partition=gpu
 
 # 激活环境
-source /opt/conda/bin/activate bio-llm
+source activate bio-llm-env
 
 # 设置数据路径
-DATA_PATH="/data/{user}/{data_id}"
-OUTPUT_PATH="/results/{user}/{task_id}"
+DATA_PATH="/shared/data/{user}/{data_id}"
+OUTPUT_PATH="/shared/results/{user}/{task_id}"
 mkdir -p $OUTPUT_PATH
 
 # 保存分析计划
@@ -124,13 +104,11 @@ cat > $OUTPUT_PATH/analysis_plan.json << 'EOF'
 EOF
 
 # 执行分析
-python /app/analysis/run_analysis.py \\
+python /shared/apps/bio-llm-platform/backend/app/analysis/run_analysis.py \\
     --task_id {task_id} \\
     --data_path $DATA_PATH \\
     --output_path $OUTPUT_PATH \\
     --config $OUTPUT_PATH/analysis_plan.json
-
-echo "分析完成，结果保存在 $OUTPUT_PATH"
 """
         return script
     
