@@ -1,5 +1,6 @@
 # 忽略 node_modules 目录
 node_modules/
+tests/
 
 # 忽略所有 .log 文件
 *.log
@@ -36,6 +37,7 @@ __pycache__/
 secret_key.txt
 package-lock.json
 package.json
+test.ipynb
 
 # 保留某个特定文件，即使它匹配上面的规则
 !important.log

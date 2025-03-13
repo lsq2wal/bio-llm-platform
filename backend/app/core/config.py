@@ -3,6 +3,9 @@ import secrets
 from typing import List, Union, Dict, Any
 from pydantic import AnyHttpUrl, field_validator
 from pydantic_settings import BaseSettings
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Settings(BaseSettings):
     API_V1_STR: str = "/api/v1"
@@ -22,7 +25,7 @@ class Settings(BaseSettings):
         raise ValueError(v)
 
     # LLM模型设置
-    LLM_MODEL_PATH: str = os.getenv("LLM_MODEL_PATH", "/models/llama3")
+    LLM_MODEL_PATH: str = os.getenv("LLM_MODEL_PATH", "/DeepSeek-R1-Distill-Qwen-1.5B")
     SCGPT_MODEL_PATH: str = os.getenv("SCGPT_MODEL_PATH", "/models/scgpt")
     GENEFORMER_MODEL_PATH: str = os.getenv("GENEFORMER_MODEL_PATH", "/models/geneformer")
     

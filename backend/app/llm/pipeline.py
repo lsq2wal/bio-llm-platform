@@ -3,31 +3,30 @@ from typing import Dict, Any, List
 import logging
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-from langchain_community.llms import HuggingFacePipeline
+from langchain_huggingface import HuggingFacePipeline
 from langchain_community.vectorstores import Chroma
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from app.core.config import settings
+import torch
 
 class LLMAnalysisPipeline:
-    """大模型驱动的分析流水线"""
+    """LLMs driven analysis pipeline"""
     
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         
-        # 初始化LLM
+        # Initialize LLM
         try:
-            self.logger.info("初始化LLM模型...")
+            self.logger.info("Initialize LLM model...")
             self.llm = self._init_llm_model()
             
-            # 初始化向量存储
-            self.logger.info("初始化向量数据库连接...")
+            # Initialize vector storage
+            self.logger.info("Initialize vector database connection...")
             self.vector_store = self._init_vector_store()
             
-            # 初始化提示模板
-            self.analysis_prompt = PromptTemplate(
-                input_variables=["task_type", "description", "parameters", "context"],
-                template="""
+            # Initialization prompt template
+            prompt_template="""
                 你是一个生物数据分析专家，擅长处理基因组学和单细胞数据。
                 
                 任务类型: {task_type}
@@ -45,13 +44,14 @@ class LLMAnalysisPipeline:
                 
                 以JSON格式输出你的分析计划:
                 """
+            
+            self.analysis_prompt = PromptTemplate(
+                input_variables=["task_type", "description", "parameters", "context"],
+                template=prompt_template
             )
             
             # 初始化分析链
-            self.analysis_chain = LLMChain(
-                llm=self.llm,
-                prompt=self.analysis_prompt
-            )
+            self.analysis_chain = self.analysis_prompt | self.llm
             
             self.logger.info("LLM分析流水线初始化完成")
         except Exception as e:
@@ -71,8 +71,9 @@ class LLMAnalysisPipeline:
         tokenizer = AutoTokenizer.from_pretrained(model_path)
         model = AutoModelForCausalLM.from_pretrained(
             model_path, 
-            device_map="auto",
-            load_in_8bit=True  # 8-bit量化以减少内存消耗
+            device_map={"":1}, # "auto"
+            load_in_8bit=False,  # 8-bit量化以减少内存消耗(先设置为Flase， bitsandbites库还不支持)
+            torch_dtype=torch.float16
         )
         
         pipe = pipeline(
